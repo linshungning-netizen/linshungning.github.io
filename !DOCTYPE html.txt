@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9A 病房守護島</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 2D Ocean Background */
+        .ocean-bg {
+            background-color: #e0f2fe; /* sky-100 */
+            background-image: radial-gradient(#bae6fd 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        /* Pentagonal Island Shape */
+        .pentagon {
+            clip-path: polygon(50% 0%, 100% 38%, 81% 100%, 19% 100%, 0% 38%);
+            transition: all 0.3s ease;
+        }
+
+        .island-amber {
+            background: linear-gradient(to bottom right, #fcd34d, #f59e0b);
+        }
+
+        .island-green {
+            background: linear-gradient(to bottom right, #34d399, #10b981);
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes bounce-slow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .animate-bounce-slow {
+            animation: bounce-slow 3s ease-in-out infinite;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+
+        /* Custom Scrollbar for chart */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen w-screen overflow-hidden flex justify-center items-center selection:bg-teal-200">
+
+    <!-- Audio Element for BGM (Royalty-free ambient loop placeholder) -->
+    <audio id="bgm" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" loop preload="auto"></audio>
+
+    <!-- Main Game Container -->
+    <div class="w-full max-w-4xl h-full sm:h-[90vh] sm:rounded-3xl shadow-2xl relative overflow-hidden flex flex-col bg-white border-0 sm:border-4 border-sky-200">
+        
+        <!-- ==================== SCREEN 1: START ==================== -->
+        <div id="screen-start" class="absolute inset-0 z-10 bg-sky-50 flex flex-col items-center justify-center p-6 ocean-bg">
+            <div class="text-center mb-8 fade-in">
+                <div class="text-6xl mb-4">🏥</div>
+                <h1 class="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight mb-3">9A 病房守護島</h1>
+                <p class="text-slate-600 text-lg font-medium">請選擇您的身分，展開化療安全冒險之旅</p>
+            </div>
+            
+            <div class="w-full max-w-lg grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 fade-in" style="animation-delay: 0.1s;">
+                <button class="role-btn bg-white border-4 border-transparent p-4 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1" data-role="新人護理師">
+                    <div class="text-3xl mb-2">🔰</div>
+                    <div class="font-bold text-slate-700">新人護理師</div>
+                </button>
+                <button class="role-btn bg-white border-4 border-transparent p-4 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1" data-role="資深學姊">
+                    <div class="text-3xl mb-2">👩‍⚕️</div>
+                    <div class="font-bold text-slate-700">資深學姊</div>
+                </button>
+                <button class="role-btn bg-white border-4 border-transparent p-4 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1" data-role="家屬">
+                    <div class="text-3xl mb-2">🤝</div>
+                    <div class="font-bold text-slate-700">家屬陪伴者</div>
+                </button>
+            </div>
+
+            <button id="btn-start" class="fade-in opacity-50 cursor-not-allowed bg-gradient-to-r from-teal-400 to-emerald-500 text-white font-black text-xl py-4 px-12 rounded-full shadow-lg transition-all" disabled style="animation-delay: 0.2s;">
+                開始遊戲 Start Game
+            </button>
+        </div>
+
+        <!-- ==================== SCREEN 2: MAP ==================== -->
+        <div id="screen-map" class="absolute inset-0 z-0 flex flex-col hidden">
+            
+            <!-- Top UI Bar -->
+            <div class="bg-white/90 backdrop-blur-md border-b-2 border-sky-100 p-4 shadow-sm z-20 shrink-0">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-3">
+                        <button id="btn-bgm" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xl hover:bg-slate-200 transition-colors">
+                            🔊
+                        </button>
+                        <div>
+                            <div class="text-xs text-slate-400 font-bold uppercase">目前身分</div>
+                            <div id="display-role" class="font-black text-teal-700 leading-none mt-1">未選擇</div>
+                        </div>
+                    </div>
+                    <div id="display-hp" class="flex gap-1 text-2xl tracking-tighter">
+                        ❤️❤️❤️
+                    </div>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-100 rounded-full h-3 shadow-inner overflow-hidden relative">
+                    <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-teal-400 to-emerald-500 w-0 transition-all duration-700 ease-out"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-600 mix-blend-difference" id="progress-text">0%</div>
+                </div>
+            </div>
+
+            <!-- Map Area -->
+            <div class="flex-1 relative ocean-bg overflow-hidden p-4">
+                <!-- Island 1 -->
+                <div class="island-container absolute group cursor-pointer" style="top: 10%; left: 10%;" data-id="0">
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow border border-slate-200 island-title text-slate-600">1. 給藥前預防</div>
+                    <div class="pentagon island-amber w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shadow-xl animate-bounce-slow group-hover:scale-110">
+                        <div class="text-3xl opacity-80">🛡️</div>
+                    </div>
+                </div>
+
+                <!-- Island 2 -->
+                <div class="island-container absolute group cursor-pointer" style="top: 15%; right: 10%;" data-id="1">
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow border border-slate-200 island-title text-slate-600">2. 給藥中預防</div>
+                    <div class="pentagon island-amber w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shadow-xl animate-bounce-slow group-hover:scale-110" style="animation-delay: 0.5s">
+                        <div class="text-3xl opacity-80">👀</div>
+                    </div>
+                </div>
+
+                <!-- Island 3 -->
+                <div class="island-container absolute group cursor-pointer" style="top: 45%; left: 50%; transform: translate(-50%, -50%);" data-id="2">
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow border border-slate-200 island-title text-slate-600">3. 緊急處置</div>
+                    <div class="pentagon island-amber w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center shadow-xl animate-bounce-slow group-hover:scale-110" style="animation-delay: 1s">
+                        <div class="text-4xl opacity-80">🚨</div>
+                    </div>
+                </div>
+
+                <!-- Island 4 -->
+                <div class="island-container absolute group cursor-pointer" style="bottom: 15%; left: 15%;" data-id="3">
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow border border-slate-200 island-title text-slate-600">4. 冷溫敷與解毒</div>
+                    <div class="pentagon island-amber w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shadow-xl animate-bounce-slow group-hover:scale-110" style="animation-delay: 1.5s">
+                        <div class="text-3xl opacity-80">🧊</div>
+                    </div>
+                </div>
+
+                <!-- Island 5 -->
+                <div class="island-container absolute group cursor-pointer" style="bottom: 10%; right: 15%;" data-id="4">
+                    <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-white/90 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap shadow border border-slate-200 island-title text-slate-600">5. 化療潑灑</div>
+                    <div class="pentagon island-amber w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center shadow-xl animate-bounce-slow group-hover:scale-110" style="animation-delay: 2s">
+                        <div class="text-3xl opacity-80">☣️</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SCREEN 3: CERTIFICATE ==================== -->
+        <div id="screen-cert" class="absolute inset-0 z-30 bg-slate-800 flex items-center justify-center p-4 hidden">
+            <div class="bg-amber-50 max-w-md w-full rounded-3xl p-6 sm:p-8 text-center relative border-8 border-amber-200 shadow-2xl fade-in overflow-hidden">
+                <!-- Decorative ribbon -->
+                <div class="absolute top-4 -right-12 bg-red-500 text-white text-[10px] font-black py-1 px-12 rotate-45 shadow">
+                    CLEARED
+                </div>
+
+                <div class="text-6xl mb-2">🏆</div>
+                <h2 class="text-2xl font-black text-amber-900 mb-1">9A 化療安全守護者</h2>
+                <div class="text-sm font-bold text-amber-600 mb-6 bg-amber-100 inline-block px-3 py-1 rounded-full">認證身分：<span id="cert-role"></span></div>
+                
+                <div class="bg-white p-4 rounded-2xl shadow-inner text-left border border-amber-100 space-y-4 mb-6">
+                    <div>
+                        <h3 class="font-bold text-teal-700 border-b-2 border-teal-100 pb-1 mb-1 text-sm flex items-center gap-1">🛡️ 預防口訣</h3>
+                        <p class="text-xs text-slate-600 font-medium">看(回血) ➔ 問(不適) ➔ 查(敷料) ➔ 絕不硬推！</p>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-rose-700 border-b-2 border-rose-100 pb-1 mb-2 text-sm flex items-center gap-1">🚨 外滲 6 字訣</h3>
+                        <div class="flex gap-1 flex-wrap font-bold text-rose-600 text-xs">
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">停</span>
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">抽</span>
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">拔</span>
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">解</span>
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">敷</span>
+                            <span class="bg-rose-50 px-2 py-1 rounded border border-rose-100">報</span>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 p-2 rounded-xl text-xs text-blue-800 border border-blue-100 leading-relaxed">
+                        <b>💡 114.01 考點記憶：</b><br>
+                        🔴 <b>小紅莓(Doxorubicin):</b> 限制擴散 ➔ 冷敷<br>
+                        🟢 <b>植物鹼(Vincristine):</b> 加速代謝 ➔ 溫敷
+                    </div>
+                </div>
+
+                <button id="btn-restart" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">
+                    Play Again (重新挑戰)
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== MODALS ==================== -->
+        <!-- Quiz Modal -->
+        <div id="modal-quiz" class="absolute inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+            <div id="quiz-box" class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-full">
+                <div class="bg-sky-100 p-4 flex justify-between items-center shrink-0">
+                    <h3 id="quiz-title" class="font-black text-sky-900 text-lg">Title</h3>
+                    <button class="btn-close-modal text-sky-600 hover:text-sky-900 text-2xl leading-none">&times;</button>
+                </div>
+                <div class="p-5 overflow-y-auto custom-scroll flex-1">
+                    <p id="quiz-scenario" class="text-slate-700 font-medium leading-relaxed mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm sm:text-base">
+                        Scenario...
+                    </p>
+                    
+                    <button id="btn-show-chart" class="w-full mb-4 bg-blue-50 text-blue-700 font-bold py-2 rounded-xl border border-blue-200 hidden items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                        📋 查看 114.01 外滲處理表
+                    </button>
+
+                    <!-- Chart Content -->
+                    <div id="chart-content" class="hidden mb-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm">
+                        <div class="mb-2"><span class="text-red-600 font-bold">🔴 小紅莓 (Doxorubicin)：</span>起皰性，局部<b>「冷敷」</b>，減少藥物擴散範圍。</div>
+                        <div><span class="text-green-600 font-bold">🟢 植物鹼 (Vincristine)：</span>局部<b>「溫敷」</b>，擴張血管加速局部藥物代謝。</div>
+                    </div>
+
+                    <div id="quiz-options" class="space-y-3">
+                        <!-- Options injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback/Alert Modal -->
+        <div id="modal-feedback" class="absolute inset-0 z-50 flex items-center justify-center p-4 pointer-events-none hidden">
+            <div id="feedback-box" class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl pointer-events-auto scale-90 transition-transform">
+                <div id="feedback-icon" class="text-6xl mb-3"></div>
+                <h3 id="feedback-title" class="text-2xl font-black mb-2"></h3>
+                <p id="feedback-msg" class="text-slate-600 mb-6 font-medium text-sm sm:text-base bg-slate-50 p-3 rounded-lg"></p>
+                <button id="btn-feedback-ok" class="w-full py-3 rounded-xl font-bold text-white transition-transform active:scale-95 shadow-lg"></button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="modal-gameover" class="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl fade-in">
+                <div class="text-6xl mb-4">💔</div>
+                <h3 class="text-2xl font-black text-slate-800 mb-2">體力透支！</h3>
+                <p class="text-slate-600 mb-6 font-medium">病安防線被突破，請回護理站喝杯水，稍作休息後重新挑戰！</p>
+                <button onclick="location.reload()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-95">
+                    重新開始遊戲
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+    <script>
+        // Game Data
+        const questions = [
+            {
+                title: "【給藥前預防】魔鬼藏在細節裡",
+                scenario: "你來到林伯伯床邊準備接上化療藥。檢視胸前的 Port-A 蝶翼針，拿生理食鹽水進行抽吸測試，發現「推注微順，但完全抽不到回血」，且紗布有點遮住針眼。這時你會怎麼做？",
+                hasChart: false,
+                options: [
+                    { text: "既然推得進去應該沒塞住，為怕延誤時間，直接接上化療藥並調好幫浦！", isCorrect: false, feedback: "危險！無回血代表管路可能移位或貼壁，且針眼必須用透明敷料清楚顯露（標準規範 5.2.19）！" },
+                    { text: "先暫停！請病人改變姿勢再試；若仍無回血，絕不硬接，立即通知醫師，並確保使用透明敷料！", isCorrect: true, feedback: "非常正確！給藥前確認管路絕對通暢是預防外滲的第一道防線！" }
+                ]
+            },
+            {
+                title: "【給藥中預防】最強的病安眼線",
+                scenario: "管路確認順暢（有回血、無阻力、透明敷料）後，啟動了輸液幫浦。離開病房前，你對林伯伯說的「最後一句叮嚀」是什麼？",
+                hasChart: false,
+                options: [
+                    { text: "「伯伯，這台機器很聰明，如果藥漏出來它會嗶嗶叫，您放心睡覺喔！」", isCorrect: false, feedback: "錯！初期外滲組織壓力低，輸液幫浦的壓力警報（Occlusion alarm）根本不會叫！不能完全依賴機器。" },
+                    { text: "「伯伯，如果胸口覺得『痛、腫、紅、熱、濕，或滴得不順』，千萬別忍耐，馬上按紅燈叫我！」", isCorrect: true, feedback: "正確！啟動病人參與病安防線，病人自己的感覺往往比機器更靈敏！" }
+                ]
+            },
+            {
+                title: "【外滲緊急處置】黃金 3 分鐘！",
+                scenario: "1 小時後紅燈響起！林伯伯胸口注射處微紅腫脹，發生「化療藥物外滲（病人體內）」了！你的第一時間處置順序是？",
+                hasChart: false,
+                options: [
+                    { text: "立刻拔除蝶翼針 ➔ 幫病人冰敷 ➔ 回護理站打電話給醫師", isCorrect: false, feedback: "千萬不能先拔針！直接拔針會讓殘留的高濃度化療藥擴散，且無法回抽殘餘藥液！" },
+                    { text: "① 立即停止輸注 ➔ ② 保留針頭，空針回抽殘餘藥液 ➔ ③ 拔除針頭、標記範圍並通知醫師", isCorrect: true, feedback: "完美掌握「停、抽、拔、標」黃金律！冷靜處理才能把傷害降到最低。" }
+                ]
+            },
+            {
+                title: "【解毒劑與冷溫敷】114.01 外滲卡",
+                scenario: "衝向護理站查看《114.01 版外滲處理表》。如果今天外滲的是「Doxorubicin（小紅莓）」vs「Vincristine（植物鹼）」，冷溫敷該怎麼選？",
+                hasChart: true,
+                options: [
+                    { text: "小紅莓需「溫敷」；植物鹼需「冷敷」，最後上 AERS 通報。", isCorrect: false, feedback: "搞反啦！小紅莓是起皰性，溫敷會讓血管擴張加速毒性擴散！請查看處理表。" },
+                    { text: "小紅莓需「冷敷(減少擴散)」；植物鹼需「溫敷(加速代謝)」，最後上 AERS 通報。", isCorrect: true, feedback: "完全正確！小紅莓冷敷，植物鹼溫敷。擁抱 114.01 新指引！" }
+                ]
+            },
+            {
+                title: "【化療潑灑】外滲 vs. 潑灑",
+                scenario: "處理完外滲後，手一滑，約 30 mL 的化療藥液「啪！」灑在地板上！這已是環境中的「潑灑（Spill）」。請問該怎麼處置？",
+                hasChart: false,
+                options: [
+                    { text: "「趕快拿抹布跟酒精去擦乾淨，丟進一般垃圾桶！」", isCorrect: false, feedback: "極度危險！化療藥具細胞毒性與揮發風險，絕對不能直接徒手清理！會造成職業暴露傷害！" },
+                    { text: "啟動潑灑流程：① 封鎖 ➔ ② 雙人分工 ➔ ③ 穿戴全套 PPE ➔ ④ 由外往內吸附 ➔ ⑤ 裝入專用化療垃圾袋！", isCorrect: true, feedback: "標準程序執行無誤！保護病人，也要保護自己與環境安全！" }
+                ]
+            }
+        ];
+
+        // State variables
+        let role = "";
+        let hp = 3;
+        let progress = 0;
+        let clearedIslands = [false, false, false, false, false];
+        let currentQuestionIndex = -1;
+        let isBgmPlaying = false;
+
+        // DOM Elements
+        const screens = {
+            start: document.getElementById('screen-start'),
+            map: document.getElementById('screen-map'),
+            cert: document.getElementById('screen-cert')
+        };
+        const bgm = document.getElementById('bgm');
+        const roleBtns = document.querySelectorAll('.role-btn');
+        const btnStart = document.getElementById('btn-start');
+        
+        // Map UI
+        const displayRole = document.getElementById('display-role');
+        const displayHp = document.getElementById('display-hp');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const progressText = document.getElementById('progress-text');
+        const btnBgm = document.getElementById('btn-bgm');
+        const islands = document.querySelectorAll('.island-container');
+        
+        // Modals
+        const modalQuiz = document.getElementById('modal-quiz');
+        const quizBox = document.getElementById('quiz-box');
+        const quizTitle = document.getElementById('quiz-title');
+        const quizScenario = document.getElementById('quiz-scenario');
+        const quizOptions = document.getElementById('quiz-options');
+        const btnShowChart = document.getElementById('btn-show-chart');
+        const chartContent = document.getElementById('chart-content');
+        
+        const modalFeedback = document.getElementById('modal-feedback');
+        const feedbackBox = document.getElementById('feedback-box');
+        const feedbackIcon = document.getElementById('feedback-icon');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        const btnFeedbackOk = document.getElementById('btn-feedback-ok');
+        
+        const modalGameover = document.getElementById('modal-gameover');
+
+        // Init Setup
+        function init() {
+            // Role Selection Logic
+            roleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    roleBtns.forEach(b => {
+                        b.classList.remove('border-teal-400', 'bg-teal-50');
+                        b.classList.add('border-transparent', 'bg-white');
+                    });
+                    btn.classList.remove('border-transparent', 'bg-white');
+                    btn.classList.add('border-teal-400', 'bg-teal-50');
+                    role = btn.dataset.role;
+                    
+                    btnStart.disabled = false;
+                    btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnStart.classList.add('hover:scale-105', 'active:scale-95');
+                });
+            });
+
+            // Start Button
+            btnStart.addEventListener('click', () => {
+                if(role) {
+                    screens.start.classList.add('hidden');
+                    screens.map.classList.remove('hidden');
+                    displayRole.innerText = role;
+                    document.getElementById('cert-role').innerText = role;
+                    updateTopBar();
+                    toggleBGM(true); // Attempt to auto-play on interaction
+                }
+            });
+
+            // BGM Toggle
+            btnBgm.addEventListener('click', () => toggleBGM(!isBgmPlaying));
+
+            // Island Clicks
+            islands.forEach(island => {
+                island.addEventListener('click', () => {
+                    const id = parseInt(island.dataset.id);
+                    if (!clearedIslands[id]) {
+                        openQuiz(id);
+                    }
+                });
+            });
+
+            // Close Quiz Modal
+            document.querySelectorAll('.btn-close-modal').forEach(btn => {
+                btn.addEventListener('click', closeQuiz);
+            });
+
+            // Chart Toggle
+            btnShowChart.addEventListener('click', () => {
+                chartContent.classList.toggle('hidden');
+            });
+
+            // Feedback OK Click
+            btnFeedbackOk.addEventListener('click', closeFeedback);
+
+            // Restart
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                location.reload();
+            });
+        }
+
+        // Logic Functions
+        function toggleBGM(forcePlay) {
+            if (forcePlay) {
+                bgm.play().then(() => {
+                    isBgmPlaying = true;
+                    btnBgm.innerText = '🔊';
+                    btnBgm.classList.add('bg-teal-100', 'text-teal-700');
+                }).catch(e => {
+                    console.log("Audio autoplay blocked", e);
+                    isBgmPlaying = false;
+                    btnBgm.innerText = '🔇';
+                });
+            } else {
+                bgm.pause();
+                isBgmPlaying = false;
+                btnBgm.innerText = '🔇';
+                btnBgm.classList.remove('bg-teal-100', 'text-teal-700');
+                btnBgm.classList.add('bg-slate-100');
+            }
+        }
+
+        function updateTopBar() {
+            // Update Hearts
+            let heartsHtml = '';
+            for(let i=0; i<3; i++) {
+                heartsHtml += i < hp ? '<span class="text-rose-500 drop-shadow-sm">❤️</span>' : '<span class="text-slate-200 grayscale">💔</span>';
+            }
+            displayHp.innerHTML = heartsHtml;
+
+            // Update Progress
+            const pct = (progress / 5) * 100;
+            progressBarFill.style.width = `${pct}%`;
+            progressText.innerText = `${pct}%`;
+        }
+
+        function updateMap() {
+            islands.forEach((island, index) => {
+                if (clearedIslands[index]) {
+                    const pentagon = island.querySelector('.pentagon');
+                    const textBadge = island.querySelector('.island-title');
+                    
+                    pentagon.classList.remove('island-amber', 'animate-bounce-slow');
+                    pentagon.classList.add('island-green');
+                    pentagon.innerHTML = '<div class="text-4xl text-white drop-shadow-md">✔️</div>';
+                    
+                    textBadge.classList.remove('text-slate-600', 'border-slate-200');
+                    textBadge.classList.add('text-emerald-700', 'bg-emerald-50', 'border-emerald-200');
+                    
+                    island.classList.remove('cursor-pointer');
+                    island.classList.add('cursor-default');
+                }
+            });
+        }
+
+        function openQuiz(index) {
+            currentQuestionIndex = index;
+            const q = questions[index];
+            
+            quizTitle.innerText = q.title;
+            quizScenario.innerText = q.scenario;
+            
+            // Handle Chart button
+            if (q.hasChart) {
+                btnShowChart.classList.remove('hidden');
+                btnShowChart.classList.add('flex');
+                chartContent.classList.add('hidden');
+            } else {
+                btnShowChart.classList.add('hidden');
+                btnShowChart.classList.remove('flex');
+                chartContent.classList.add('hidden');
+            }
+
+            // Generate Options
+            quizOptions.innerHTML = '';
+            q.options.forEach((opt, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 border-slate-100 hover:border-sky-300 hover:bg-sky-50 transition-all group flex items-start gap-4';
+                btn.innerHTML = `
+                    <span class="shrink-0 bg-slate-100 group-hover:bg-sky-200 text-slate-500 group-hover:text-sky-800 w-8 h-8 flex items-center justify-center rounded-full font-bold">
+                        ${i === 0 ? 'A' : 'B'}
+                    </span>
+                    <span class="text-slate-700 font-medium pt-1">
+                        ${opt.text}
+                    </span>
+                `;
+                btn.onclick = () => submitAnswer(opt.isCorrect, opt.feedback);
+                quizOptions.appendChild(btn);
+            });
+
+            modalQuiz.classList.remove('hidden');
+            quizBox.classList.remove('shake');
+        }
+
+        function closeQuiz() {
+            modalQuiz.classList.add('hidden');
+            currentQuestionIndex = -1;
+        }
+
+        function submitAnswer(isCorrect, feedback) {
+            if (isCorrect) {
+                showFeedback(true, "✅ 處置正確！", feedback);
+            } else {
+                // Apply Shake animation
+                quizBox.classList.remove('shake');
+                void quizBox.offsetWidth; // trigger reflow
+                quizBox.classList.add('shake');
+                
+                hp--;
+                updateTopBar();
+                
+                if (hp <= 0) {
+                    setTimeout(() => {
+                        modalQuiz.classList.add('hidden');
+                        modalGameover.classList.remove('hidden');
+                    }, 500);
+                } else {
+                    showFeedback(false, "❌ 警告！", feedback);
+                }
+            }
+        }
+
+        function showFeedback(isSuccess, title, msg) {
+            modalFeedback.classList.remove('hidden');
+            
+            // Remove previous styling classes
+            feedbackBox.className = "bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl pointer-events-auto scale-100 transition-transform duration-300";
+            btnFeedbackOk.className = "w-full py-3 rounded-xl font-bold text-white transition-transform active:scale-95 shadow-lg";
+            
+            feedbackTitle.innerText = title;
+            feedbackMsg.innerText = msg;
+
+            if (isSuccess) {
+                feedbackIcon.innerText = "🎉";
+                feedbackTitle.classList.add('text-emerald-600');
+                feedbackTitle.classList.remove('text-rose-600');
+                btnFeedbackOk.innerText = "繼續探索";
+                btnFeedbackOk.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+                btnFeedbackOk.dataset.action = 'success';
+            } else {
+                feedbackIcon.innerText = "🚨";
+                feedbackTitle.classList.add('text-rose-600');
+                feedbackTitle.classList.remove('text-emerald-600');
+                btnFeedbackOk.innerText = "了解，重新選擇";
+                btnFeedbackOk.classList.add('bg-rose-500', 'hover:bg-rose-600');
+                btnFeedbackOk.dataset.action = 'fail';
+            }
+        }
+
+        function closeFeedback() {
+            modalFeedback.classList.add('hidden');
+            
+            if (btnFeedbackOk.dataset.action === 'success') {
+                closeQuiz();
+                clearedIslands[currentQuestionIndex] = true;
+                progress++;
+                updateMap();
+                updateTopBar();
+                
+                // Check win condition
+                if (progress === 5) {
